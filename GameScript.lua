@@ -9,6 +9,8 @@ local sunucuDeposu = game:GetService("ServerStorage")
 --> 3. Haritalar adındaki klasöre Referans Olacak.
 local haritalar = sunucuDeposu:WaitForChild("Harita")
 
+---------------------------------------------------------------Güncelleme------------------------------------------------------------------
+
 --> ReplicatedStorage adını verdiğim servise bir referans değişken oluşturalım.
 local kopyaDeposu = game:GetService("ReplicatedStorage")
 --> kopyaDeposu'nun içerisinde bulunan durum değeri adındaki string value'ye referans olacak değişkne
@@ -17,6 +19,12 @@ local durumDegeri = kopyaDeposu:WaitForChild("DurumDegeri")
 local zamanDegeri = kopyaDeposu:WaitForChild("ZamanDegeri")
 -->Son olarak oyun süresini belirten bir değişken
 local oyunSuresi = 5 * 60
+
+---------------------------------------------------------------Güncelleme 2-------------------------------------------------------------------
+
+--> Lobide Başka oyuncular eğer oyuna katılırsa diye yeni oyuna başlamadan küçük bir bekleme süresi veriyoruz.
+local lobiBeklemeSuresi = 30
+
 ----------------------------------------------------------------------------------------------------------------------------------------------
 
 -----------------------------------------------------------------Oyunun Kodları----------------------------------------------------------------
@@ -154,6 +162,109 @@ while true do
 		sayac = sayac - 1
 		--> Zaman değerinin değerini sayac olarak ayarlıyorum.
 		zamanDegeri.Value = sayac
+
+		--> Aktif Oyuncuları depolayan bir liste(array) oluştururuz.
+		--> {} --> boş bir dizininin oluşturulduğunu belirtir.
+		--> Dizi kavramı içerisinde birden fazla eleman(veri) bulunduran değişken tipidir.
+		aktifOyuncular = {}
+		--> Avcının hala oyunda olup olmadığını belirten bir mantıksal veri tipinde değer oluştururuz.
+		--> true veya false veri değerine sahip olan değişkenlerin veri tipi boolean'dır.
+		avciOyundami = false
+		
+		--> Dizimizi aktif oyuncuların bilgileri ile doldurmalıyız. Bu bilgiler sayesinde oyuncualrın oyunda olup olmadığını kontrol edeceğiz.
+		--> Kontrol sağlayabilmek için for döngüsünü kullanacağız.
+		--> for dongüleri belirlediğimiz klasörün içindeki elemanları döndüren bir döngüdür.
+		for i, oyuncu in pairs(oyuncular) do
+			--> İlk önce oyuncumuzuzun oyun içerisindeki modelini tanıtmamız gerekiyor.Bunun nedeni içindeki nesnelere erişim sağlamamız lazım.
+			local karakter = oyuncu.Character
+			--> Oyuncu karakterinin içerisinde, haritaya ışınlandıktan sonra oluşan "Eşleşme" adındaki nesneyi bir değişkene atıyoruz.
+			local eslesmeNesnesi = karkater:FindFirstChild("Eşleşme")
+			--> Oyuncu karakterinin içerisinde var olan "Humanoid" değerini bir değişkene atıyoruz.
+			local humanoid = karakter:FindFirstChild("Humanoid")
+
+			--> Eğer Eslesme Nesnesi varsa ve humanoid'in sağlık değeri 0'dan büyükse
+			if eslesmeNesnesi and humanoid.Health > 0 then
+				--> Aynı zamanda eğer Avcı oyuna dahil ise avcının oyunda olduğunu da belirtmemiz gerekir..
+				if oyuncu == avci then
+					--> Oluşturduğumuz avciOyundami değişkenini true olarak değiştiriyoruz bu bağlamda
+					avciOyundami = true
+				end
+				--> Yukarıda oluşturduğumuz şartlar karşılanıyorsa aktif oyuncular adlı diziye oyuncuları ekleyebiliriz.
+				table.insert(aktifOyuncular, oyuncu)	
+			end
+		end 
+		--1 (veya daha az) aktif oyuncu kaldıysa veya oyuncular arasında avcı yoksa maçtan sorumlu döngüyü durdurun.
+		if #aktifOyuncular <= 1 or not avciOyundami then
+			--> break komutu bir döngüyü durdurur. 
+			break
+		end	
+	end
+	--> Lobide bulunan doğma noktalarının bir dizisini oluşturuyoruz.
+	--> {} --> boş bir dizininin oluşturulduğunu belirtir
+	local spawnNoktalari = {}
+	--> spawnNoktalari adindaki diziyi doldurmak için bir for dongüsü oluşturuyoruz.
+	--> for dongüleri belirlediğimiz klasörün içindeki elemanları döndüren bir döngüdür.
+	--> isinlanmaNoktasi adlı değişkeni lobi içerisindeki elemanlarda arıyoruz.
+	for i, isinlanmaNoktasi in pairs(workspace:WaitForChild("Lobi"):GetChildren()) do
+		--> Lobide ışınlanma noktalarının haricinde bir sürü eleman mevcut.
+		--> Bu bağlamda isinlanmaNoktasi'nin ismi SpawnLocation'a eşitse diye bir şart getiriyoruz.
+		if isinlanmaNoktasi == "SpawnLocation" then
+			--> SpawnNoktalari adındaki dizimize isnlanmaNoktalarini ekliyoruz.
+			table.insert(spawnNoktalari, isinlanmaNoktasi)
+		end
+	end
+
+	--> Oyuncular öldükten sonra silahlarla avcı ve şerifin elinde silahla lobiye dönmesini istemeyiz.
+	--> Bu bağlamda oyuncular silahlarını devre dışı bırakarak sırt çantalarına kaldırıyoruz.
+	for i, oyuncu in pairs(aktifOyuncular) do
+		--> ilk önce oyuncumuzun karkaterinde bulunan humanoid nesnesini arıyoruz
+		local humanoid = oyuncu.Character:FindFirstChild("Humanoid")
+		--> Ardından eğer oyuncunun humanoidi varsa
+		if humanoid then
+			-->humanoidin elinde bulunan araçları(silah veya kılıç) elinden alıp sırt çantasına koyuyoruz.
+			humanoid:UnequipTools()
+		end
+
+		--> Artık oyuncuları lobiye tekrar ışınlama zamanı!
+		--> Rastgele bir spawn noktasını seçmek için bir değişken oluşturup kullanıyoruz
+		--> Daha önce doldurduğumuz spawnNoktalari adindaki listenin içinden rastgele seçeceğiz. 
+		--> [] = işareti bir sıra numarası belirtir. Bu indeks anlamına gelir.
+		--> # işareti ise önek aldığı listenin içerisindeki eleman sayısını belirler.
+		local rastgeleDogmaNoktasi = [math.random(1, #spawnNoktalari)]
+		--> Oyuncuları lobiden rastgele seçtiğimiz spawn'a taşıyoruz.
+		--> MoveTo() fonksiyonu oyuncunun modelini belirlediğimiz pozisyona götülmememizi sağlar.
+		oyuncu.Character:MoveTo(rastgeleDogmaNoktasi.Position)
+		--> Oyuncular Lobiye ışınlandıktan sonra artık sırtçantasına kaldırdığımız silahları silebiliriz.
+		--> Bunun için ilk önce oyuncunun sırtçantasını bir değişkene atıyoruz.
+		local sirtCantasi = oyuncu:FindFirstChild("Backpack")
+		--> Artık şartımızı belirleyebiliriz.
+		--> Eğer sirtCantasi varsa
+		if sirtCantasi then
+			--> Sırt çantasının içindeki tüm elemanları silmesini istiyoruz.
+			--> :ClearAllChilderen() Fonksiyonu bu eylemi yapar.
+			sirtCantasi:ClearAllChilderen()
+		end
+	end
+	--> Artık Lobideki Zamanlayıcıyı etkinleştirebiliriz.
+	--> Daha önce ayarladığımız stringValue(durumDegeri) adındaki değişkenimizin değerini değiştirerek işe başlıyoruz.
+	durumDegeri.Value = "Ara! Yeni Oyun için Kalan Süre: "
+	--> zamanDeğeri adındaki değişkenimizin değerini ise lobiBeklemeSüresi olarak atayalım.
+	zamanDegeri.Value = lobiBeklemeSuresi
+	--> Yeni bir değişken oluşturup, sonlu döngümüzü ayarlamak için kullanalım.
+	local donguZamanlayicisi = lobiBeklemeSuresi
+
+	--> Artık Sonlu döngümüzü oluşturup, lobiBeklemeSuresi kadar ara vermemizi sağlayalım!
+	--> donguZamanlayicisi 0'dan büyükse bu döngü çalışacaktır.
+	while donguZamanlayicisi > 0 do
+		--> Döngümüz saniye cinsinden belirlediğimiz değer kadar bekleyeceği için sayının 1 saniye 1 azalmasını istiyoruz.
+		--> Bu bağlamda 1 saniyelik bekleme süresinin ardından döngü devam edecek.
+		--> wait() fonksiyonu bu işi yapar.
+		wait(1)
+		--> Ardından dongüZamanlayicisindan her bir saniyede bir bir azaltacağız.
+		donguZamanlayicisi = donguZamanlayicisi - 1
+		--> Arık bu döngününde sonunu getirebiliriz.
+		--> Bunun için zamanDeğerimizi her seferinde güncelleyerek GUI üzerinde doğru değeri gösterebilriiz.
+		zamanDegeri.Value = donguZamanlayicisi
 	end
 end
 
